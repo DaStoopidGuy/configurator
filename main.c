@@ -1,137 +1,90 @@
-#include <ctype.h>
-#include <assert.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <string.h>
+#define SV_IMPLEMENTATION
+#include "string_view.h"
 
 #define FATAL(msg, ...) do { \
     printf("FATAL: " msg " \n", ##__VA_ARGS__); \
     abort(); \
 } while(0) \
 
-// String stuffs
-#define Stink_Fmt "%.*s"
-#define Stink_Arg(s) (int) (s).len, (s).data
-
+// String
 typedef struct {
     char *data;
     size_t len;
-} Stink;
+    size_t alloc;
+} String;
 
-Stink stink_from_parts(char *data, size_t len)
-{
-    Stink s = {
-        .data = data,
-        .len = len,
-    };
+String str_from_parts(const char* data, size_t len) {
+    String s = {0};
+    s.len = len;
+    s.alloc = len + 1;
+    s.data = malloc(s.alloc);
+
+    memcpy(s.data, data, len);
+    s.data[s.len] = '\0'; // append null terminator
 
     return s;
 }
 
-Stink stink_from_cstr(char *cstr)
-{
-    return stink_from_parts(cstr, strlen(cstr));
+String str_from_cstr(const char *cstr) {
+    return str_from_parts(cstr, strlen(cstr));
 }
 
-// trim all whitespace from left side and return trimmed stink
-Stink stink_trim_left(Stink s) {
-    size_t i = 0;
-
-    // find first non-whitespace character
-    while (i < s.len && isspace(s.data[i]))
-    {
-        i++;
-    }
-
-    return stink_from_parts(s.data + i, s.len - i);
-}
-
-// trim all whitespace from right side and return trimmed stink
-Stink stink_trim_right(Stink s) {
-    size_t i = 0;
-
-    // find last non-whitespace character
-    while (i < s.len && isspace(s.data[s.len - i - 1])) {
-        i++;
-    }
-
-    return stink_from_parts(s.data, s.len - i);
-}
-
-// trim all surrounding whitespace
-Stink stink_trim(Stink s) {
-    return stink_trim_right(stink_trim_left(s));
-}
-
-Stink stink_chop_by_delim(Stink *s, char delim) {
-    // find delimiter
-    size_t i = 0;
-    while (i < s->len && s->data[i] != delim) {
-        i++;
-    }
-
-    Stink result = stink_from_parts(s->data, i);
-
-    if (i < s->len) {
-        s->data += i + 1;
-        s->len  -= i + 1;
-    } else {
-        s->data += i;
-        s->len -= i;
-    }
-
-    return result;
+void str_free(String s) {
+    free(s.data);
+    s.data = NULL;
+    s.len = 0;
+    s.alloc = 0;
 }
 
 // Config stuff
 typedef struct {
-    Stink key;
-    Stink val;
+    String key;
+    String val;
 } ConfigEntry;
 
 typedef struct {
     ConfigEntry* entries;
     size_t len;
     size_t alloc;
-
-    FILE *file;
-    char *buffer;
 } Config;
 
-Config config_from(const char* filename) {
+Config config_open(const char* filename) {
     Config c = {0};
 
     // try to open the file
-    c.file = fopen(filename, "r");
-    if (c.file == NULL) {
+    FILE *f = fopen(filename, "r");
+    if (f == NULL) {
         FATAL("File (%s) could not be opened", filename);
     }
 
     // find size of file
-    fseek(c.file, 0, SEEK_END);
-    long filesize = ftell(c.file);
-    fseek(c.file, 0, SEEK_SET);
+    fseek(f, 0, SEEK_END);
+    long filesize = ftell(f);
+    fseek(f, 0, SEEK_SET);
 
     // allocate buffer of required size
-    c.buffer = malloc(filesize);
+    char *buffer = malloc(filesize);
 
     // read contents of file into buffer
-    if (c.buffer) {
-        fread(c.buffer, 1, filesize, c.file);
+    if (buffer) {
+        fread(buffer, 1, filesize, f);
     }
 
     { // parsing stuff
-        Stink text = stink_trim(stink_from_parts(c.buffer, filesize));
+        StringView text = sv_trim(sv_from_parts(buffer, filesize));
         while (text.len > 0) {
-            Stink key = stink_trim(stink_chop_by_delim(&text, '='));
-            Stink val = stink_trim(stink_chop_by_delim(&text, '\n'));
+            StringView key = sv_trim(sv_chop_by_delim(&text, '='));
+            StringView val = sv_trim(sv_chop_by_delim(&text, '\n'));
 
             // append to ConfigEntries
             {
                 ConfigEntry entry = {
-                    .key = key,
-                    .val = val,
+                    .key = str_from_parts(key.data, key.len),
+                    .val = str_from_parts(val.data, val.len),
                 };
 
                 if (c.len >= c.alloc) {
@@ -140,23 +93,36 @@ Config config_from(const char* filename) {
                     assert(c.entries != NULL);
                 }
                 c.entries[c.len++] = entry;
-
-                printf("New entry: "Stink_Fmt" = "Stink_Fmt"\n", Stink_Arg(entry.key), Stink_Arg(entry.val));
             }
         }
     }
 
+    free(buffer);
+    fclose(f);
     return c;
 }
 
 void config_close(Config *c) {
     // clean up
-    free(c->buffer);
-    c->buffer = NULL;
-    fclose(c->file);
-    c->file = NULL;
+    for (size_t i=0; i<c->len; i++) {
+        ConfigEntry entry = c->entries[i];
+        str_free(entry.key);
+        str_free(entry.val);
+    }
+
     free(c->entries);
     c->entries = NULL;
+}
+
+const char *config_get(Config *c, const char* key) {
+    for(size_t i = 0; i < c->len; i++) {
+        const ConfigEntry entry = c->entries[i];
+
+        if (memcmp(key, entry.key.data, strlen(key))) {
+            return entry.val.data;
+        }
+    }
+    return NULL;
 }
 
 int main(int argc, char **argv) {
@@ -169,7 +135,12 @@ int main(int argc, char **argv) {
         printf("1st argument: %s\n", argv[1]);
     }
 
-    Config config = config_from(filename);
+    Config config = config_open(filename);
+
+
+    const char *key = "pp";
+    const char *val = config_get(&config, key);
+    printf("[%s] -> \"%s\"\n", key, val);
 
     config_close(&config);
     return 0;
