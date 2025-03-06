@@ -7,9 +7,9 @@ INCFLAGS :=
 CFLAGS := -Wall -Wextra -ggdb $(INCFLAGS) -fsanitize=address
 LDFLAGS :=
 
-$(TARGET): $(SRCS)
+$(TARGET): $(SRCS) configurator.h stinky.h
 	mkdir -p $(BUILD_DIR)
-	$(CC) $^ $(CFLAGS) -o $@ $(LDFLAGS)
+	$(CC) $(SRCS) $(CFLAGS) -o $@ $(LDFLAGS)
 
 .PHONY: run debug clean
 run: $(TARGET)

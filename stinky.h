@@ -1,8 +1,36 @@
+/*
+ * You need:
+ * #define STINKY_IMPLEMENTATION
+ * before #include(-ing) this header
+ *
+ * This header-only "library" includes two things:
+ * 1. String(s)
+ *      which are allocated with their own memory.
+ *      and are required to be freed after use
+ *
+ * ------
+ * 2. StringView(s)
+ *      which are like "slices"
+ *      only point to memory which is already allocated
+ *      and therefore, do not need to be freed.
+ *      just do stuff with 'em and forget about them
+ */
 #pragma once
 #include <stddef.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdbool.h>
+
+// Allocated strings
+typedef struct {
+    char *data;
+    size_t len;
+    size_t alloc;
+} String;
+
+String str_from_parts(const char* data, size_t len);
+String str_from_cstr(const char *cstr);
+void str_free(String s);
 
 // String view
 #define SV_Fmt "%.*s"
@@ -23,7 +51,32 @@ StringView sv_trim(StringView s);
 StringView sv_chop_by_delim(StringView *s, char delim);
 bool sv_equals(StringView a, StringView b);
 
-#ifdef SV_IMPLEMENTATION
+#ifdef STINKY_IMPLEMENTATION
+// String implemntation
+String str_from_parts(const char* data, size_t len) {
+    String s = {0};
+    s.len = len;
+    s.alloc = len + 1;
+    s.data = malloc(s.alloc);
+
+    memcpy(s.data, data, len);
+    s.data[s.len] = '\0'; // append null terminator
+
+    return s;
+}
+
+String str_from_cstr(const char *cstr) {
+    return str_from_parts(cstr, strlen(cstr));
+}
+
+void str_free(String s) {
+    free(s.data);
+    s.data = NULL;
+    s.len = 0;
+    s.alloc = 0;
+}
+
+// String view implementation
 StringView sv_from_parts(const char *data, size_t len) {
     StringView s = {
         .data = data,
