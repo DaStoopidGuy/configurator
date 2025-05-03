@@ -1,9 +1,9 @@
 # Configurator
+Configurator is a (stb-style) header-only library.  
+Supports basic key-value pair syntax:
+`<key> = <value>`
 
 ## Usage
-
-Configurator is a (stb-style) header-only library.
-
 To include it in your program:
 
 ```c
@@ -25,7 +25,7 @@ Config config_open(const char* filename);
 void config_close(Config *c);
 const char *config_get(Config *c, const char* key); // very important to call at the end
 ```
-# Example
+## Example
 
 demo `test.cfg` config file:
 
