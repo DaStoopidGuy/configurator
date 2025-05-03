@@ -16,8 +16,7 @@ int main(int argc, char **argv) {
     printf("Configurator testing lol\n");
 
     const char *home = getenv("HOME");
-    if (home == NULL)
-        exit(1);
+    if (home == NULL) exit(1);
 
     StringBuilder *filepath = sb_from_cstr(home);
     char *filename = "/.config/bingchillin.conf";

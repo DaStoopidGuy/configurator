@@ -9,6 +9,8 @@ typedef struct {
     size_t alloc;
 } StringBuilder;
 
+StringBuilder *sb_new();
+StringBuilder *sb_from_size(size_t size);
 StringBuilder *sb_from_parts(const char* data, size_t len);
 StringBuilder *sb_from_cstr(const char *cstr);
 void sb_free(StringBuilder *s);
@@ -18,14 +20,32 @@ const char *sb_get_cstr(StringBuilder *s);
 
 #ifdef SB_IMPL
 // String implemntation
-StringBuilder *sb_from_parts(const char* data, size_t len) {
-    StringBuilder *s = malloc(sizeof(StringBuilder));
 
-    s->len = len;
-    s->alloc = len;
+StringBuilder *sb_new() {
+    StringBuilder *s = malloc(sizeof(StringBuilder));
+    s->data = NULL;
+    s->len = 0;
+    s->alloc = 16; // default allocation size
     s->data = malloc(s->alloc);
 
+    return s;
+}
+
+StringBuilder *sb_from_size(size_t size) {
+    StringBuilder *s = malloc(sizeof(StringBuilder));
+    s->data = NULL;
+    s->len = 0;
+    s->alloc = size;
+    s->data = malloc(s->alloc);
+
+    return s;
+}
+
+StringBuilder *sb_from_parts(const char* data, size_t len) {
+    StringBuilder *s = sb_from_size(len);
+
     memcpy(s->data, data, len);
+    s->len = len;
 
     return s;
 }
