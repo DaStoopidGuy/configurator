@@ -1,18 +1,24 @@
+/* needs following defines:
+ * #define CONFIG_IMPL
+ * #define SB_IMPL
+ * #define SV_IMPL
+ */
 #pragma once
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
-#define STINKY_IMPLEMENTATION
-#include "stinky.h"
+
+#include "string_view.h"
+#include "string_builder.h"
 
 #define FATAL(msg, ...) do { \
     printf("FATAL: " msg " \n", ##__VA_ARGS__); \
-    abort(); \
+    exit(1); \
 } while(0) \
 
 typedef struct {
-    String key;
-    String val;
+    StringBuilder *key;
+    StringBuilder *val;
 } ConfigEntry;
 
 typedef struct {
@@ -25,7 +31,7 @@ Config config_open(const char* filename);
 void config_close(Config *c);
 const char *config_get(Config *c, const char* key);
 
-#ifdef CONFIG_IMPLEMENTATION
+#ifdef CONFIG_IMPL
 Config config_open(const char* filename) {
     Config c = {0};
 
@@ -57,8 +63,8 @@ Config config_open(const char* filename) {
             // append to ConfigEntries
             {
                 ConfigEntry entry = {
-                    .key = str_from_parts(key.data, key.len),
-                    .val = str_from_parts(val.data, val.len),
+                    .key = sb_from_parts(key.data, key.len),
+                    .val = sb_from_parts(val.data, val.len),
                 };
 
                 if (c.len >= c.alloc) {
@@ -80,8 +86,8 @@ void config_close(Config *c) {
     // clean up
     for (size_t i=0; i<c->len; i++) {
         ConfigEntry entry = c->entries[i];
-        str_free(entry.key);
-        str_free(entry.val);
+        sb_free(entry.key);
+        sb_free(entry.val);
     }
 
     free(c->entries);
@@ -92,10 +98,10 @@ const char *config_get(Config *c, const char* key) {
     for(size_t i = 0; i < c->len; i++) {
         const ConfigEntry entry = c->entries[i];
 
-        if (sv_equals(sv_from_cstr(key), sv_from_parts(entry.key.data, entry.key.len))) {
-            return entry.val.data;
+        if (sv_equals(sv_from_cstr(key), sv_from_parts(entry.key->data, entry.key->len))) {
+            return sb_get_cstr(entry.val);
         }
     }
     return NULL;
 }
-#endif //CONFIG_IMPLEMENTATION
+#endif //CONFIG_IMPL
