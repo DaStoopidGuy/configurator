@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <string.h>
 #define CONFIG_IMPL
 #define SV_IMPL
 #define SB_IMPL
@@ -31,7 +30,7 @@ int main(int argc, char **argv) {
 
     printf("%s\n", sb_get_cstr(filepath));
 
-    Config config = config_open(filename);
+    Config config = config_open(sb_get_cstr(filepath));
     print_config(&config, "name");
     print_config(&config, "age");
 

@@ -78,6 +78,7 @@ void sb_append_cstr(StringBuilder *s, const char *cstr) {
     sb_realloc_if_required(s, required_len);
     
     memcpy(s->data + s->len, cstr, cstr_len);
+    s->len = required_len;
 }
 
 const char *sb_get_cstr(StringBuilder *s) {
